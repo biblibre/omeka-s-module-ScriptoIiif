@@ -70,7 +70,7 @@ class Module extends AbstractModule
                     'type' => 'AnnotationPage',
                     'items' => [ $annotation ],
                 ];
-                $canvas['items'][] = $annotationPage;
+                $canvas['annotations'][] = $annotationPage;
             }
         }
 
