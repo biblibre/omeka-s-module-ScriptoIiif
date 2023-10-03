@@ -8,7 +8,10 @@ use Omeka\Entity\Vocabulary;
 use Omeka\Module\AbstractModule;
 use Laminas\EventManager\SharedEventManagerInterface;
 use Laminas\EventManager\Event;
+use Laminas\Mvc\Controller\AbstractController;
+use Laminas\View\Renderer\PhpRenderer;
 use Scripto\Entity\ScriptoMedia;
+use ScriptoIiif\Form\ConfigForm;
 
 class Module extends AbstractModule
 {
@@ -17,12 +20,45 @@ class Module extends AbstractModule
         $sharedEventManager->attach('*', 'iiif_presentation.3.media.canvas', [$this, 'onIiifPresentation3MediaCanvas']);
     }
 
+    public function getConfigForm(PhpRenderer $renderer)
+    {
+        $services = $this->getServiceLocator();
+        $settings = $services->get('Omeka\Settings');
+        $forms = $services->get('FormElementManager');
+        $form = $forms->get(ConfigForm::class);
+
+        $form->setData([
+            'scriptoiiif_motivation' => $settings->get('scriptoiiif_motivation'),
+        ]);
+
+        return $renderer->formCollection($form, false);
+    }
+
+    public function handleConfigForm(AbstractController $controller)
+    {
+        $services = $this->getServiceLocator();
+        $settings = $services->get('Omeka\Settings');
+        $forms = $services->get('FormElementManager');
+        $form = $forms->get(ConfigForm::class);
+        $form->setData($controller->params()->fromPost());
+        if (!$form->isValid()) {
+            $controller->messenger()->addFormErrors($form);
+            return false;
+        }
+
+        $formData = $form->getData();
+        $settings->set('scriptoiiif_motivation', $formData['scriptoiiif_motivation']);
+
+        return true;
+    }
+
     public function onIiifPresentation3MediaCanvas(Event $event)
     {
         $services = $this->getServiceLocator();
         $logger = $services->get('Omeka\Logger');
         $em = $services->get('Omeka\EntityManager');
         $adapters = $services->get('Omeka\ApiAdapterManager');
+        $settings = $services->get('Omeka\Settings');
 
         $controller = $event->getTarget();
         $canvas = $event->getParam('canvas');
@@ -52,7 +88,7 @@ class Module extends AbstractModule
                     'label' => [
                         'en' => [ $property->getLabel() ],
                     ],
-                    'motivation' => 'supplementing',
+                    'motivation' => $settings->get('scriptoiiif_motivation') ?: 'supplementing',
                     'body' => [
                         'type' => 'TextualBody',
                         'format' => 'text/plain',
